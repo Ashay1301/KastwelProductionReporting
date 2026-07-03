@@ -66,7 +66,6 @@ export default function WorkerHome() {
               {session.operator ? ` · ${session.operator}` : ''}
               {session.grade ? ` · Grade ${session.grade}` : ''}
             </p>
-            {session.lotNo && <p className="text-xs text-orange-500 mt-0.5">Lot: {session.lotNo}</p>}
           </div>
         )}
 

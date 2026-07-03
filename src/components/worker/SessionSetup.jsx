@@ -33,7 +33,6 @@ export default function SessionSetup() {
     furnaceId: existing?.furnaceId || '',
     operator: existing?.operator || '',
     grade: existing?.grade || '',
-    lotNo: existing?.lotNo || '',
   });
   const [error, setError] = useState('');
 
@@ -111,12 +110,6 @@ export default function SessionSetup() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lot No.</label>
-            <input type="text" value={form.lotNo} onChange={(e) => set('lotNo', e.target.value)}
-              placeholder="e.g. 260701/819"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          </div>
         </div>
 
         <button type="submit"

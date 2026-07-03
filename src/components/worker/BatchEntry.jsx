@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, ChevronDown, ChevronUp, Plus, Trash2, CheckCircle, Settings, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Plus, Trash2, CheckCircle, Settings, ChevronRight, LayoutList, Table2 } from 'lucide-react';
 import { getSession } from './SessionSetup';
 
 const FURNACES = ['A', 'B', 'A2', 'B2', 'C2'];
 const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
+
+function computeLotNo(dateStr, grade) {
+  if (!grade) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${year.slice(-2)}${month}${day}/${grade}`;
+}
 
 function addOneMinute(timeStr) {
   if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return '';
@@ -25,19 +31,19 @@ function hasOverride(c, session) {
     (c.grade && c.grade !== session?.grade);
 }
 
+// ─── Card view ───────────────────────────────────────────────────────────────
+
 function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDelete, isOnly }) {
   const [showOverride, setShowOverride] = useState(false);
   const filled = isFilled(charge);
   const overridden = hasOverride(charge, session);
 
-  // Effective values (charge override or session default)
   const effectiveFurnace = charge.furnaceId || session?.furnaceId || '';
   const effectiveOperator = charge.operator !== undefined ? charge.operator : (session?.operator || '');
   const effectiveGrade = charge.grade !== undefined ? charge.grade : (session?.grade || '');
 
   return (
     <div className={`rounded-xl border transition-colors ${expanded ? 'border-orange-300 bg-orange-50' : filled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
-      {/* Card header */}
       <button type="button" onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
@@ -74,10 +80,8 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
         </div>
       </button>
 
-      {/* Expanded body */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
-          {/* Primary changing fields */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Final Weight (kg)</label>
             <input type="number" value={charge.finalWeight} onChange={(e) => onChange(index, 'finalWeight', e.target.value)}
@@ -115,7 +119,6 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
             </div>
           </div>
 
-          {/* Override toggle */}
           <button type="button" onClick={() => setShowOverride((s) => !s)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-600 transition-colors py-1">
             <ChevronRight size={13} className={`transition-transform ${showOverride ? 'rotate-90' : ''}`} />
@@ -161,12 +164,6 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Lot No.</label>
-                <input type="text" value={charge.lotNo ?? ''} onChange={(e) => onChange(index, 'lotNo', e.target.value)}
-                  placeholder={session?.lotNo || 'e.g. 260701/819'}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
-              </div>
             </div>
           )}
 
@@ -180,8 +177,120 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
   );
 }
 
+// ─── Grid view ───────────────────────────────────────────────────────────────
+
+function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
+  const cell = (overridden) =>
+    `w-full border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500 ${
+      overridden ? 'border-orange-400 bg-orange-50 text-orange-800' : 'border-gray-200 bg-white text-gray-800'
+    }`;
+
+  const handleStartFocus = (i) => {
+    if (!charges[i].startTime && i > 0) {
+      const suggested = addOneMinute(charges[i - 1]?.endTime);
+      if (suggested) onChange(i, 'startTime', suggested);
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      <table className="text-sm border-collapse" style={{ minWidth: 880 }}>
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 font-semibold uppercase tracking-wide">
+            <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2.5 text-center w-10 border-r border-gray-200">#</th>
+            <th className="px-2 py-2.5 text-left min-w-[90px]">Furnace</th>
+            <th className="px-2 py-2.5 text-left min-w-[110px]">Operator</th>
+            <th className="px-2 py-2.5 text-left min-w-[70px]">Grade</th>
+            <th className="px-2 py-2.5 text-left min-w-[95px]">Weight (kg)</th>
+            <th className="px-2 py-2.5 text-left min-w-[75px]">Start</th>
+            <th className="px-2 py-2.5 text-left min-w-[75px]">End</th>
+            <th className="px-2 py-2.5 text-left min-w-[85px]">Energy</th>
+            <th className="px-2 py-2.5 text-left min-w-[75px]">Temp °C</th>
+            <th className="px-2 py-2.5 w-8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {charges.map((c, i) => {
+            const furnaceOverridden = !!c.furnaceId && c.furnaceId !== session?.furnaceId;
+            const operatorOverridden = !!c.operator && c.operator !== session?.operator;
+            const gradeOverridden = !!c.grade && c.grade !== session?.grade;
+            const filled = isFilled(c);
+
+            return (
+              <tr key={i} className={`border-t border-gray-100 transition-colors hover:bg-gray-50/50 ${filled ? 'bg-green-50/20' : ''}`}>
+                <td className="sticky left-0 bg-white px-3 py-2 text-center border-r border-gray-100">
+                  <span className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-xs font-bold ${
+                    filled ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'
+                  }`}>{i + 1}</span>
+                </td>
+                <td className="px-2 py-1.5">
+                  <select
+                    value={c.furnaceId || session?.furnaceId || FURNACES[0]}
+                    onChange={(e) => onChange(i, 'furnaceId', e.target.value)}
+                    className={cell(furnaceOverridden)}>
+                    {FURNACES.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="text" value={c.operator ?? ''} onChange={(e) => onChange(i, 'operator', e.target.value)}
+                    placeholder={session?.operator || '—'} className={cell(operatorOverridden)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="text" value={c.grade ?? ''} onChange={(e) => onChange(i, 'grade', e.target.value)}
+                    placeholder={session?.grade || '—'} className={cell(gradeOverridden)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="number" value={c.finalWeight} onChange={(e) => onChange(i, 'finalWeight', e.target.value)}
+                    placeholder="kg" min="0" step="any" className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="text" value={c.startTime} onChange={(e) => onChange(i, 'startTime', e.target.value)}
+                    onFocus={() => handleStartFocus(i)}
+                    placeholder="HH:MM" maxLength={5} className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="text" value={c.endTime} onChange={(e) => onChange(i, 'endTime', e.target.value)}
+                    placeholder="HH:MM" maxLength={5} className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="number" value={c.energyMeterReading} onChange={(e) => onChange(i, 'energyMeterReading', e.target.value)}
+                    placeholder="kWh" min="0" step="any" className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="number" value={c.temperature} onChange={(e) => onChange(i, 'temperature', e.target.value)}
+                    placeholder="°C" min="0" step="any" className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5 text-center">
+                  {charges.length > 1 && (
+                    <button type="button" onClick={() => onDelete(i)}
+                      className="text-gray-300 hover:text-red-500 p-1 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-gray-200 bg-gray-50/50">
+            <td colSpan={10} className="px-3 py-2">
+              <button type="button" onClick={addCharge}
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-orange-600 transition-colors">
+                <Plus size={14} /> Add Charge
+              </button>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 const EMPTY_CHARGE = () => ({
-  furnaceId: '', operator: '', grade: '', lotNo: '',
+  furnaceId: '', operator: '', grade: '',
   finalWeight: '', startTime: '', endTime: '',
   energyMeterReading: '', temperature: '',
 });
@@ -193,6 +302,7 @@ export default function BatchEntry() {
 
   const [charges, setCharges] = useState(() => Array.from({ length: 18 }, EMPTY_CHARGE));
   const [expanded, setExpanded] = useState(0);
+  const [layout, setLayout] = useState(() => localStorage.getItem('production_batch_layout') || 'card');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -208,8 +318,7 @@ export default function BatchEntry() {
     );
   }
 
-  // Session-type fields cascade forward to all subsequent charges
-  const SESSION_FIELDS = ['furnaceId', 'operator', 'grade', 'lotNo'];
+  const SESSION_FIELDS = ['furnaceId', 'operator', 'grade'];
 
   const handleChange = (i, key, val) => {
     setCharges((prev) => prev.map((c, idx) => {
@@ -222,13 +331,11 @@ export default function BatchEntry() {
   const handleToggle = (i) => {
     setExpanded((prev) => {
       if (prev === i) {
-        // Collapsing — auto-jump to next unfilled
         const nextUnfilled = charges.findIndex((c, idx) => idx > i && !isFilled(c));
         const next = nextUnfilled !== -1 ? nextUnfilled : null;
         if (next !== null) autoFillStartTime(next, charges);
         return next;
       }
-      // Opening — auto-fill start time
       autoFillStartTime(i, charges);
       return i;
     });
@@ -251,23 +358,29 @@ export default function BatchEntry() {
   const addCharge = () => {
     const newIdx = charges.length;
     setCharges((prev) => [...prev, EMPTY_CHARGE()]);
-    // Auto-fill start time for the new card
     setTimeout(() => autoFillStartTime(newIdx, charges), 0);
     setExpanded(newIdx);
   };
 
-  // Resolve effective values: charge override takes priority over session default
-  const resolveCharge = (c) => ({
+  const switchLayout = (l) => {
+    setLayout(l);
+    localStorage.setItem('production_batch_layout', l);
+  };
+
+  const resolveCharge = (c) => {
+    const grade = c.grade !== '' ? c.grade : session.grade;
+    return {
     furnaceId: c.furnaceId || session.furnaceId,
     operator: c.operator !== '' ? c.operator : session.operator,
-    grade: c.grade !== '' ? c.grade : session.grade,
-    lotNo: c.lotNo !== '' ? c.lotNo : session.lotNo,
+    grade,
+    lotNo: computeLotNo(session.date, grade),
     finalWeight: c.finalWeight,
     startTime: c.startTime,
     endTime: c.endTime,
     energyMeterReading: c.energyMeterReading,
     temperature: c.temperature,
-  });
+  };
+  };
 
   const filledCharges = charges.filter(isFilled).map(resolveCharge);
 
@@ -320,49 +433,84 @@ export default function BatchEntry() {
           <h1 className="font-bold text-gray-900 text-sm">End-of-Shift Entry</h1>
           <p className="text-xs text-gray-400">{filledCharges.length}/{charges.length} filled</p>
         </div>
-        <button onClick={() => navigate('/session-setup?mode=batch')} className="text-gray-400 hover:text-orange-600 min-h-[48px] flex items-center">
-          <Settings size={18} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => switchLayout('card')}
+            title="Card view"
+            className={`p-2 rounded-lg transition-colors ${layout === 'card' ? 'bg-orange-100 text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            <LayoutList size={18} />
+          </button>
+          <button
+            onClick={() => switchLayout('grid')}
+            title="Grid view"
+            className={`p-2 rounded-lg transition-colors ${layout === 'grid' ? 'bg-orange-100 text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            <Table2 size={18} />
+          </button>
+          <button onClick={() => navigate('/session-setup?mode=batch')}
+            className="text-gray-400 hover:text-orange-600 p-2 ml-1 min-h-[48px] flex items-center">
+            <Settings size={18} />
+          </button>
+        </div>
       </header>
 
-      <div className="max-w-xl mx-auto px-4 py-4 space-y-3">
+      <div className={`${layout === 'grid' ? 'px-4' : 'max-w-xl mx-auto px-4'} py-4 space-y-4`}>
         {/* Session banner */}
         <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="font-bold text-orange-800">{FURNACE_LABELS[session.furnaceId] || session.furnaceId}</span>
             <span className="text-xs text-orange-400">{session.shift} · {new Date(session.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
           </div>
-          {(session.operator || session.grade || session.lotNo) && (
+          {(session.operator || session.grade) && (
             <p className="text-orange-600 text-xs mt-0.5">
-              {[session.operator, session.grade && `Grade ${session.grade}`, session.lotNo].filter(Boolean).join(' · ')}
+              {[session.operator, session.grade && `Grade ${session.grade}`].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
 
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
 
-        <p className="text-xs text-gray-400 px-1">
-          Start time is auto-filled from the previous charge's end time +1 min. Tap any charge to override furnace/operator/grade.
-        </p>
+        {layout === 'card' && (
+          <p className="text-xs text-gray-400 px-1">
+            Start time is auto-filled from the previous charge's end time +1 min. Tap any charge to override furnace/operator/grade.
+          </p>
+        )}
 
-        {charges.map((c, i) => (
-          <ChargeCard
-            key={i}
-            index={i}
-            charge={c}
+        {layout === 'grid' && (
+          <p className="text-xs text-gray-400 px-1">
+            Orange cells indicate values that differ from the session default and cascade to all rows below. Start time auto-fills on focus.
+          </p>
+        )}
+
+        {layout === 'card' ? (
+          <>
+            {charges.map((c, i) => (
+              <ChargeCard
+                key={i}
+                index={i}
+                charge={c}
+                session={session}
+                expanded={expanded === i}
+                onToggle={() => handleToggle(i)}
+                onChange={handleChange}
+                onDelete={handleDelete}
+                isOnly={charges.length === 1}
+              />
+            ))}
+
+            <button type="button" onClick={addCharge}
+              className="w-full border-2 border-dashed border-gray-300 text-gray-500 rounded-xl py-3 flex items-center justify-center gap-2 text-sm hover:border-orange-300 hover:text-orange-600 transition-colors">
+              <Plus size={16} /> Add Charge
+            </button>
+          </>
+        ) : (
+          <BatchGrid
+            charges={charges}
             session={session}
-            expanded={expanded === i}
-            onToggle={() => handleToggle(i)}
             onChange={handleChange}
             onDelete={handleDelete}
-            isOnly={charges.length === 1}
+            addCharge={addCharge}
           />
-        ))}
-
-        <button type="button" onClick={addCharge}
-          className="w-full border-2 border-dashed border-gray-300 text-gray-500 rounded-xl py-3 flex items-center justify-center gap-2 text-sm hover:border-orange-300 hover:text-orange-600 transition-colors">
-          <Plus size={16} /> Add Charge
-        </button>
+        )}
 
         <div className="pt-2 pb-6">
           <button type="button" onClick={handleSubmit} disabled={saving || filledCharges.length === 0}

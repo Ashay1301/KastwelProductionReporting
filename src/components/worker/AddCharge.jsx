@@ -8,6 +8,12 @@ const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 
 
 const EMPTY_CHARGE = { finalWeight: '', startTime: '', endTime: '', energyMeterReading: '', temperature: '' };
 
+function computeLotNo(dateStr, grade) {
+  if (!grade) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${year.slice(-2)}${month}${day}/${grade}`;
+}
+
 export default function AddCharge() {
   const { authFetch } = useAuth();
   const navigate = useNavigate();
@@ -37,10 +43,11 @@ export default function AddCharge() {
     setError('');
     setSaving(true);
     try {
+      const lotNo = computeLotNo(session.date, session.grade);
       const res = await authFetch('/api/reports/tav', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...session, ...charge }),
+        body: JSON.stringify({ ...session, ...charge, lotNo }),
       });
       if (!res.ok) { const { message } = await res.json(); throw new Error(message || 'Failed to save'); }
       const newCount = count + 1;
@@ -75,7 +82,6 @@ export default function AddCharge() {
               <span className="font-bold text-orange-800">{FURNACE_LABELS[session.furnaceId] || session.furnaceId}</span>
               {session.operator && <span className="text-orange-700"> · {session.operator}</span>}
               {session.grade && <span className="text-orange-600"> · Grade {session.grade}</span>}
-              {session.lotNo && <span className="text-orange-500"> · {session.lotNo}</span>}
             </div>
             <span className="text-xs text-orange-400">{session.shift}</span>
           </div>
