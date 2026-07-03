@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import WorkerHome from './components/worker/Home';
+import SessionSetup from './components/worker/SessionSetup';
 import AddCharge from './components/worker/AddCharge';
+import BatchEntry from './components/worker/BatchEntry';
 import MyCharges from './components/worker/MyCharges';
 import Dashboard from './components/admin/Dashboard';
 import ReportList from './components/admin/ReportList';
@@ -25,7 +27,6 @@ function ProtectedRoute({ children, role }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -40,7 +41,9 @@ function AppRoutes() {
 
       {/* Worker routes */}
       <Route path="/" element={<ProtectedRoute role="worker"><WorkerHome /></ProtectedRoute>} />
-      <Route path="/add-charge" element={<ProtectedRoute role="worker"><AddCharge /></ProtectedRoute>} />
+      <Route path="/session-setup" element={<ProtectedRoute role="worker"><SessionSetup /></ProtectedRoute>} />
+      <Route path="/log-charge" element={<ProtectedRoute role="worker"><AddCharge /></ProtectedRoute>} />
+      <Route path="/batch-entry" element={<ProtectedRoute role="worker"><BatchEntry /></ProtectedRoute>} />
       <Route path="/my-charges" element={<ProtectedRoute role="worker"><MyCharges /></ProtectedRoute>} />
 
       {/* Admin routes */}

@@ -66,12 +66,14 @@ function TavRow({ tav, index, editing, onChange, onDelete }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
-          <input type="time" value={tav.startTime || ''} onChange={(e) => onChange(index, 'startTime', e.target.value)}
+          <input type="text" value={tav.startTime || ''} onChange={(e) => onChange(index, 'startTime', e.target.value)}
+            placeholder="e.g. 08:30" maxLength={5}
             className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
-          <input type="time" value={tav.endTime || ''} onChange={(e) => onChange(index, 'endTime', e.target.value)}
+          <input type="text" value={tav.endTime || ''} onChange={(e) => onChange(index, 'endTime', e.target.value)}
+            placeholder="e.g. 10:15" maxLength={5}
             className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
         </div>
         <div>

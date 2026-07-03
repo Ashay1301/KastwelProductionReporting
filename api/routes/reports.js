@@ -102,51 +102,70 @@ router.get('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/reports/tav — log a single charge (upserts report for date+shift)
+function buildTav(fields, seqNo, loggedBy) {
+  const { furnaceId, operator, grade, lotNo, finalWeight, startTime, endTime, energyMeterReading, temperature } = fields;
+  return {
+    furnaceId: furnaceId || '',
+    operator: operator || '',
+    grade: grade || '',
+    lotNo: lotNo || '',
+    finalWeight: finalWeight != null && finalWeight !== '' ? Number(finalWeight) : undefined,
+    startTime: startTime || '',
+    endTime: endTime || '',
+    energyMeterReading: energyMeterReading != null && energyMeterReading !== '' ? Number(energyMeterReading) : undefined,
+    temperature: temperature != null && temperature !== '' ? Number(temperature) : undefined,
+    loggedBy,
+    seqNo,
+  };
+}
+
+async function upsertReport(date, shift) {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+  let report = await Report.findOne({ date: { $gte: dayStart, $lte: dayEnd }, shift });
+  if (!report) {
+    report = new Report({ submissionId: dateToId(date, shift), date: dayStart, shift, tavs: [] });
+  }
+  return report;
+}
+
+// POST /api/reports/tav — log a single charge (real-time mode)
 router.post('/tav', verifyToken, async (req, res) => {
   try {
     await connectDB();
-    const { date, shift, furnaceId, operator, grade, finalWeight, startTime, endTime, energyMeterReading, temperature } = req.body;
-
+    const { date, shift, furnaceId } = req.body;
     if (!date || !shift || !furnaceId) {
       return res.status(400).json({ message: 'date, shift, and furnaceId are required' });
     }
-
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    let report = await Report.findOne({ date: { $gte: dayStart, $lte: dayEnd }, shift });
-
-    if (!report) {
-      report = new Report({
-        submissionId: dateToId(date, shift),
-        date: dayStart,
-        shift,
-        tavs: [],
-      });
-    }
-
+    const report = await upsertReport(date, shift);
     const seqNo = (report.tavs || []).filter((t) => t.furnaceId === furnaceId).length + 1;
-
-    report.tavs.push({
-      furnaceId,
-      operator: operator || '',
-      grade: grade || '',
-      finalWeight: finalWeight != null ? Number(finalWeight) : undefined,
-      startTime: startTime || '',
-      endTime: endTime || '',
-      energyMeterReading: energyMeterReading != null ? Number(energyMeterReading) : undefined,
-      temperature: temperature != null ? Number(temperature) : undefined,
-      loggedBy: req.user.name,
-      seqNo,
-    });
-
+    report.tavs.push(buildTav(req.body, seqNo, req.user.name));
     await report.save();
     res.status(201).json({ report });
   } catch (err) {
     res.status(500).json({ message: 'Failed to log charge', error: err.message });
+  }
+});
+
+// POST /api/reports/batch — submit multiple charges at once (end-of-shift mode)
+router.post('/batch', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const { date, shift, charges } = req.body;
+    if (!date || !shift || !Array.isArray(charges) || charges.length === 0) {
+      return res.status(400).json({ message: 'date, shift, and charges[] are required' });
+    }
+    const report = await upsertReport(date, shift);
+    for (const charge of charges) {
+      const seqNo = (report.tavs || []).filter((t) => t.furnaceId === charge.furnaceId).length + 1;
+      report.tavs.push(buildTav(charge, seqNo, req.user.name));
+    }
+    await report.save();
+    res.status(201).json({ report });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to log batch', error: err.message });
   }
 });
 

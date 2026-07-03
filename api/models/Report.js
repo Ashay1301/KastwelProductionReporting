@@ -4,6 +4,7 @@ const tavSchema = new mongoose.Schema({
   furnaceId: { type: String, trim: true },
   operator: { type: String, trim: true },
   grade: { type: String, trim: true },
+  lotNo: { type: String, trim: true },
   finalWeight: { type: Number },
   startTime: { type: String, trim: true },
   endTime: { type: String, trim: true },
