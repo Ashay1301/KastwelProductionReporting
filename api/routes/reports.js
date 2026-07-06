@@ -40,6 +40,7 @@ router.get('/stats/today', verifyToken, async (req, res) => {
     res.json({
       totalTavs: allTavs.length,
       totalWeight: allTavs.reduce((s, t) => s + (t.finalWeight || 0), 0),
+      pendingWeights: allTavs.filter((t) => t.finalWeight == null || t.finalWeight === '').length,
       byFurnace,
       reports: reports.map((r) => ({ _id: r._id, submissionId: r.submissionId, shift: r.shift, tavCount: r.tavs.length })),
     });
@@ -87,6 +88,59 @@ router.get('/', verifyToken, async (req, res) => {
     res.json({ reports: summary });
   } catch {
     res.status(500).json({ message: 'Failed to fetch reports' });
+  }
+});
+
+// GET /api/reports/pending-weights — tavs missing finalWeight for a given date/shift
+router.get('/pending-weights', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const { date, shift } = req.query;
+    const dayStart = date ? new Date(date) : new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const filter = { date: { $gte: dayStart, $lte: dayEnd } };
+    if (shift) filter.shift = shift;
+    const reports = await Report.find(filter).lean();
+    const pending = [];
+    for (const report of reports) {
+      for (const tav of (report.tavs || [])) {
+        if (tav.finalWeight == null || tav.finalWeight === '') {
+          pending.push({
+            reportId: report._id,
+            reportShift: report.shift,
+            tavId: tav._id,
+            seqNo: tav.seqNo,
+            furnaceId: tav.furnaceId,
+            grade: tav.grade,
+            startTime: tav.startTime,
+            endTime: tav.endTime,
+            temperature: tav.temperature,
+          });
+        }
+      }
+    }
+    res.json({ pending, total: pending.length });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch pending weights' });
+  }
+});
+
+// PATCH /api/reports/:id/tav/:tavId — update a single tav's finalWeight (worker)
+router.patch('/:id/tav/:tavId', verifyToken, async (req, res) => {
+  try {
+    await connectDB();
+    const { finalWeight } = req.body;
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+    const tav = report.tavs.id(req.params.tavId);
+    if (!tav) return res.status(404).json({ message: 'Charge not found' });
+    tav.finalWeight = finalWeight != null && finalWeight !== '' ? Number(finalWeight) : undefined;
+    await report.save();
+    res.json({ tav });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update weight', error: err.message });
   }
 });
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Factory, Clock, ClipboardList, Zap } from 'lucide-react';
+import { LogOut, Factory, Clock, ClipboardList, Zap, Scale } from 'lucide-react';
 import { getSession, clearSession } from './SessionSetup';
 
 const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
@@ -97,6 +97,17 @@ export default function WorkerHome() {
           className="w-full bg-white border border-gray-200 text-gray-700 font-semibold rounded-2xl py-3.5 flex items-center justify-center gap-2 text-sm hover:bg-gray-50 transition-colors">
           <Clock size={18} />
           My Charges Today
+        </Link>
+
+        <Link to="/fill-weights"
+          className="w-full bg-white border border-gray-200 text-gray-700 font-semibold rounded-2xl py-3.5 flex items-center justify-center gap-2 text-sm hover:bg-gray-50 transition-colors relative">
+          <Scale size={18} />
+          Fill Weights
+          {!loading && stats?.pendingWeights > 0 && (
+            <span className="absolute right-4 bg-orange-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+              {stats.pendingWeights}
+            </span>
+          )}
         </Link>
       </div>
     </div>

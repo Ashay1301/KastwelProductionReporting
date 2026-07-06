@@ -6,6 +6,7 @@ import SessionSetup from './components/worker/SessionSetup';
 import AddCharge from './components/worker/AddCharge';
 import BatchEntry from './components/worker/BatchEntry';
 import MyCharges from './components/worker/MyCharges';
+import FillWeights from './components/worker/FillWeights';
 import Dashboard from './components/admin/Dashboard';
 import ReportList from './components/admin/ReportList';
 import ReportDetail from './components/admin/ReportDetail';
@@ -45,6 +46,7 @@ function AppRoutes() {
       <Route path="/log-charge" element={<ProtectedRoute role="worker"><AddCharge /></ProtectedRoute>} />
       <Route path="/batch-entry" element={<ProtectedRoute role="worker"><BatchEntry /></ProtectedRoute>} />
       <Route path="/my-charges" element={<ProtectedRoute role="worker"><MyCharges /></ProtectedRoute>} />
+      <Route path="/fill-weights" element={<ProtectedRoute role="worker"><FillWeights /></ProtectedRoute>} />
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute role="admin"><Dashboard /></ProtectedRoute>} />

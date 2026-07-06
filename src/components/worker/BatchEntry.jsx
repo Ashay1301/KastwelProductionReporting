@@ -51,12 +51,19 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
           }`}>{index + 1}</span>
           <div className="text-left">
             {filled ? (
-              <p className="text-sm text-gray-700">
-                {charge.finalWeight ? `${charge.finalWeight} kg` : '—'}
-                {charge.startTime ? ` · ${charge.startTime}` : ''}
-                {charge.endTime ? `–${charge.endTime}` : ''}
-                {charge.temperature ? ` · ${charge.temperature}°C` : ''}
-              </p>
+              <>
+                <p className="text-sm text-gray-700">
+                  {effectiveGrade ? `Grade ${effectiveGrade}` : ''}
+                  {(charge.startTime || charge.endTime)
+                    ? `${effectiveGrade ? ' · ' : ''}${charge.startTime || '?'} – ${charge.endTime || '?'}`
+                    : ''}
+                  {charge.energyMeterReading ? ` · ${charge.energyMeterReading} kWh` : ''}
+                  {charge.temperature ? ` · ${charge.temperature}°C` : ''}
+                </p>
+                <p className={`text-xs mt-0.5 font-semibold ${charge.finalWeight !== '' ? 'text-green-700' : 'text-gray-400'}`}>
+                  {charge.finalWeight !== '' ? `${charge.finalWeight} kg` : 'Weight not filled'}
+                </p>
+              </>
             ) : (
               <p className="text-sm text-gray-400">Tap to fill</p>
             )}
@@ -82,18 +89,11 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Final Weight (kg)</label>
-            <input type="number" value={charge.finalWeight} onChange={(e) => onChange(index, 'finalWeight', e.target.value)}
-              placeholder="e.g. 261.300" min="0" step="any" autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white" />
-          </div>
-
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
               <input type="text" value={charge.startTime} onChange={(e) => onChange(index, 'startTime', e.target.value)}
-                placeholder="08:30" maxLength={5}
+                placeholder="08:30" maxLength={5} autoFocus
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white" />
             </div>
             <div>
@@ -117,6 +117,13 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
                 placeholder="°C" min="0" step="any"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Final Weight (kg)</label>
+            <input type="number" value={charge.finalWeight} onChange={(e) => onChange(index, 'finalWeight', e.target.value)}
+              placeholder="e.g. 261.300" min="0" step="any"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white" />
           </div>
 
           <button type="button" onClick={() => setShowOverride((s) => !s)}
@@ -201,11 +208,11 @@ function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
             <th className="px-2 py-2.5 text-left min-w-[90px]">Furnace</th>
             <th className="px-2 py-2.5 text-left min-w-[110px]">Operator</th>
             <th className="px-2 py-2.5 text-left min-w-[70px]">Grade</th>
-            <th className="px-2 py-2.5 text-left min-w-[95px]">Weight (kg)</th>
             <th className="px-2 py-2.5 text-left min-w-[75px]">Start</th>
             <th className="px-2 py-2.5 text-left min-w-[75px]">End</th>
             <th className="px-2 py-2.5 text-left min-w-[85px]">Energy</th>
             <th className="px-2 py-2.5 text-left min-w-[75px]">Temp °C</th>
+            <th className="px-2 py-2.5 text-left min-w-[95px]">Weight (kg)</th>
             <th className="px-2 py-2.5 w-8"></th>
           </tr>
         </thead>
@@ -240,10 +247,6 @@ function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
                     placeholder={session?.grade || '—'} className={cell(gradeOverridden)} />
                 </td>
                 <td className="px-2 py-1.5">
-                  <input type="number" value={c.finalWeight} onChange={(e) => onChange(i, 'finalWeight', e.target.value)}
-                    placeholder="kg" min="0" step="any" className={cell(false)} />
-                </td>
-                <td className="px-2 py-1.5">
                   <input type="text" value={c.startTime} onChange={(e) => onChange(i, 'startTime', e.target.value)}
                     onFocus={() => handleStartFocus(i)}
                     placeholder="HH:MM" maxLength={5} className={cell(false)} />
@@ -259,6 +262,10 @@ function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
                 <td className="px-2 py-1.5">
                   <input type="number" value={c.temperature} onChange={(e) => onChange(i, 'temperature', e.target.value)}
                     placeholder="°C" min="0" step="any" className={cell(false)} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input type="number" value={c.finalWeight} onChange={(e) => onChange(i, 'finalWeight', e.target.value)}
+                    placeholder="kg" min="0" step="any" className={cell(false)} />
                 </td>
                 <td className="px-2 py-1.5 text-center">
                   {charges.length > 1 && (
