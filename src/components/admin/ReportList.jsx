@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, ChevronRight, Download } from 'lucide-react';
 import { exportBulkReports } from '../../utils/excelExport';
 
-const FURNACES = ['A', 'B', 'A2', 'B2', 'C2'];
 
 function todayStr() {
   const d = new Date();
@@ -47,7 +46,12 @@ export default function ReportList() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; load(); return; }
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [filters]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -97,13 +101,14 @@ export default function ReportList() {
               <select value={filters.furnace} onChange={(e) => setF('furnace', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
                 <option value="">All Furnaces</option>
-                {FURNACES.map((f) => <option key={f}>{f}</option>)}
+                <option value="A">A (500kg)</option>
+                <option value="B">B (500kg)</option>
+                <option value="A2">A2 (1000kg)</option>
+                <option value="B2">B2 (1000kg)</option>
+                <option value="C2">C2 (500kg)</option>
               </select>
             </div>
           </div>
-          <button onClick={load} className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">
-            Apply Filters
-          </button>
         </div>
 
         {loading ? (

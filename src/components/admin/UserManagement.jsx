@@ -65,6 +65,7 @@ export default function UserManagement() {
   };
 
   const toggleActive = async (user) => {
+    if (user.isActive && !window.confirm(`Disable ${user.name}? They will not be able to log in.`)) return;
     await authFetch(`/api/users/${user._id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -80,7 +81,7 @@ export default function UserManagement() {
           <ArrowLeft size={18} /> Dashboard
         </Link>
         <button
-          onClick={() => { setShowAdd(true); setError(''); }}
+          onClick={() => { setShowAdd(true); setEditId(null); setError(''); }}
           className="flex items-center gap-1 bg-orange-600 text-white text-sm font-semibold rounded-lg px-3 py-2"
         >
           <Plus size={15} /> Add User
@@ -150,7 +151,7 @@ export default function UserManagement() {
                       <p className="text-xs text-gray-400">{u.email} · <span className="capitalize">{u.role}</span></p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setEditId(u._id); setEditForm({ name: u.name, role: u.role }); }}
+                      <button onClick={() => { setEditId(u._id); setEditForm({ name: u.name, role: u.role }); setShowAdd(false); setError(''); }}
                         className="p-2 text-gray-400 hover:text-orange-600"><Pencil size={16} /></button>
                       <button onClick={() => toggleActive(u)}
                         className={`text-xs font-semibold px-2 py-1 rounded-full ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>

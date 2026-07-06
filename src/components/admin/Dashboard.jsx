@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Factory, BarChart2, Users } from 'lucide-react';
+import { LogOut, Factory, BarChart2, Users, RefreshCw } from 'lucide-react';
 
 const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
 
@@ -35,10 +35,21 @@ export default function Dashboard() {
           const tavs = allTavs.filter((t) => t.furnaceId === id);
           return { furnaceId: id, count: tavs.length, totalWeight: tavs.reduce((s, t) => s + (t.finalWeight || 0), 0) };
         }).filter((f) => f.count > 0);
+        const shiftMap = {};
+        full.forEach((r) => {
+          const sh = r.shift || 'Unknown';
+          if (!shiftMap[sh]) shiftMap[sh] = { count: 0, weight: 0 };
+          (r.tavs || []).forEach((t) => {
+            shiftMap[sh].count += 1;
+            shiftMap[sh].weight += t.finalWeight || 0;
+          });
+        });
+        const byShift = Object.entries(shiftMap).map(([shift, d]) => ({ shift, ...d })).sort((a, b) => a.shift.localeCompare(b.shift));
         setStats({
           totalTavs: allTavs.length,
           totalWeight: allTavs.reduce((s, t) => s + (t.finalWeight || 0), 0),
           byFurnace,
+          byShift,
           reports: full,
         });
       })
@@ -72,7 +83,12 @@ export default function Dashboard() {
       <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <div className="flex gap-1 bg-gray-200 rounded-lg p-1">
+          <div className="flex items-center gap-2">
+            <button onClick={() => load(view === 'today' ? today : yesterday)} disabled={loading}
+              className="text-gray-400 hover:text-orange-600 disabled:opacity-40 p-1.5 transition-colors">
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <div className="flex gap-1 bg-gray-200 rounded-lg p-1">
             {['today', 'yesterday'].map((v) => (
               <button
                 key={v}
@@ -84,6 +100,7 @@ export default function Dashboard() {
                 {v}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
@@ -116,6 +133,20 @@ export default function Dashboard() {
                     <span className="text-right font-semibold text-gray-800">{f.totalWeight} kg</span>
                   </div>
                 ))}
+                {stats.byShift?.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-3 gap-1 px-4 py-2 border-t border-gray-200 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">
+                      <span>Shift</span><span className="text-center">Charges</span><span className="text-right">Weight</span>
+                    </div>
+                    {stats.byShift.map((s) => (
+                      <div key={s.shift} className="grid grid-cols-3 gap-1 px-4 py-3 border-t border-gray-50 text-sm">
+                        <span className="font-medium text-gray-700">{s.shift}</span>
+                        <span className="text-center text-gray-600">{s.count}</span>
+                        <span className="text-right font-semibold text-gray-700">{s.weight} kg</span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             )}
 

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 const FURNACES = ['A', 'B', 'A2', 'B2', 'C2'];
+const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
 
 function todayStr() {
   const d = new Date();
@@ -64,6 +65,12 @@ export default function SessionSetup() {
 
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
 
+        {form.date && form.date !== todayStr() && (
+          <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 text-sm text-amber-800">
+            Session date is <strong>{new Date(form.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong> — is that correct?
+          </div>
+        )}
+
         <div className="bg-white rounded-xl p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -86,10 +93,10 @@ export default function SessionSetup() {
             <div className="grid grid-cols-5 gap-2">
               {FURNACES.map((id) => (
                 <button key={id} type="button" onClick={() => set('furnaceId', id)}
-                  className={`py-2.5 rounded-lg text-sm font-bold border transition-colors ${
+                  className={`py-2.5 rounded-lg text-xs font-bold border transition-colors leading-tight ${
                     form.furnaceId === id ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                   }`}>
-                  {id}
+                  {FURNACE_LABELS[id]}
                 </button>
               ))}
             </div>

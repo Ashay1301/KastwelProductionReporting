@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, Flame } from 'lucide-react';
+import { ArrowLeft, Flame, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
 
@@ -14,23 +14,29 @@ export default function MyCharges() {
   const { user, authFetch } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     const today = todayStr();
-    authFetch(`/api/reports?from=${today}&to=${today}`)
-      .then((r) => r.json())
-      .then(({ reports }) => {
-        // We need full reports to see tav details — fetch each one
-        return Promise.all(
-          (reports || []).map((r) =>
-            authFetch(`/api/reports/${r._id}`).then((res) => res.json()).then(({ report }) => report)
-          )
-        );
-      })
-      .then((full) => setReports(full.filter(Boolean)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const res = await authFetch(`/api/reports?from=${today}&to=${today}`);
+      const { reports: list } = await res.json();
+      const full = await Promise.all(
+        (list || []).map((r) =>
+          authFetch(`/api/reports/${r._id}`).then((res2) => res2.json()).then(({ report }) => report)
+        )
+      );
+      setReports(full.filter(Boolean));
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [authFetch]);
+
+  useEffect(() => { load(); }, [load]);
 
   const myTavs = reports
     .flatMap((r) =>
@@ -40,19 +46,34 @@ export default function MyCharges() {
     )
     .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
+  const todayDisplay = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <Link to="/" className="text-orange-600 min-h-[48px] flex items-center">
           <ArrowLeft size={20} />
         </Link>
-        <h1 className="font-bold text-gray-900">My Charges Today</h1>
+        <div className="flex-1">
+          <h1 className="font-bold text-gray-900">My Charges</h1>
+          <p className="text-xs text-gray-400">{todayDisplay}</p>
+        </div>
+        <button onClick={load} disabled={loading}
+          className="text-gray-400 hover:text-orange-600 disabled:opacity-40 p-2 transition-colors">
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+        </button>
       </header>
 
       <div className="max-w-xl mx-auto px-4 py-5 space-y-3">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-7 h-7 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center py-14 text-center gap-3">
+            <AlertTriangle size={36} className="text-orange-400" />
+            <p className="font-semibold text-gray-700">Couldn't load charges</p>
+            <button onClick={load} className="text-sm text-orange-600 underline">Tap to retry</button>
           </div>
         ) : myTavs.length === 0 ? (
           <div className="text-center py-16 text-gray-400">

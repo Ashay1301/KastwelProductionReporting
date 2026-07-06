@@ -40,26 +40,32 @@ export default function WorkerHome() {
           <p className="text-sm text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
         </div>
 
-        {/* Today's stats */}
-        {!loading && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1">Total Charges</p>
+        {/* Today's stats — always in DOM, skeleton while loading */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1">Total Charges</p>
+            {loading ? (
+              <div className="h-9 w-12 bg-gray-200 rounded animate-pulse" />
+            ) : (
               <p className="text-3xl font-bold text-orange-600">{stats?.totalTavs ?? 0}</p>
-            </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-500 mb-1">Total Weight</p>
-              <p className="text-3xl font-bold text-gray-800">{stats?.totalWeight ?? 0}<span className="text-base font-normal text-gray-400 ml-1">kg</span></p>
-            </div>
+            )}
           </div>
-        )}
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs text-gray-500 mb-1">Total Weight</p>
+            {loading ? (
+              <div className="h-9 w-24 bg-gray-200 rounded animate-pulse" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-800">{stats?.totalWeight ?? 0}<span className="text-base font-normal text-gray-400 ml-1">kg</span></p>
+            )}
+          </div>
+        </div>
 
         {/* Active session banner */}
         {session && (
           <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-bold text-orange-700 uppercase tracking-wide">Active Session</p>
-              <button onClick={() => { clearSession(); window.location.reload(); }} className="text-xs text-orange-400 underline">Clear</button>
+              <button onClick={() => { if (window.confirm('Clear the active session?')) { clearSession(); window.location.reload(); } }} className="text-xs text-orange-400 underline">Clear</button>
             </div>
             <p className="text-sm font-semibold text-orange-800">
               {FURNACE_LABELS[session.furnaceId] || session.furnaceId}

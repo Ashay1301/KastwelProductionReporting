@@ -108,6 +108,7 @@ export default function ReportDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editedTavs, setEditedTavs] = useState([]);
+  const [editedRemarks, setEditedRemarks] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -118,7 +119,7 @@ export default function ReportDetail() {
       .finally(() => setLoading(false));
   }, [id, authFetch]);
 
-  const startEdit = () => { setEditedTavs(report.tavs.map((t) => ({ ...t }))); setEditing(true); };
+  const startEdit = () => { setEditedTavs(report.tavs.map((t) => ({ ...t }))); setEditedRemarks(report.remarks || ''); setEditing(true); };
   const cancelEdit = () => { setEditing(false); setError(''); };
 
   const handleChange = (i, key, val) => {
@@ -147,7 +148,7 @@ export default function ReportDetail() {
       const res = await authFetch(`/api/reports/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tavs: cleaned }),
+        body: JSON.stringify({ tavs: cleaned, remarks: editedRemarks }),
       });
       if (!res.ok) throw new Error('Failed to save');
       const { report: updated } = await res.json();
@@ -249,6 +250,15 @@ export default function ReportDetail() {
           <button onClick={handleAddTav} className="w-full border-2 border-dashed border-orange-300 text-orange-600 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold hover:bg-orange-50 transition-colors">
             <Plus size={18} /> Add Charge
           </button>
+        )}
+
+        {editing && (
+          <div className="bg-white rounded-xl p-4">
+            <label className="block text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Remarks</label>
+            <textarea value={editedRemarks} onChange={(e) => setEditedRemarks(e.target.value)}
+              rows={3} placeholder="Optional notes about this report…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          </div>
         )}
 
         {report.remarks && !editing && (

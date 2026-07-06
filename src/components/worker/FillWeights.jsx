@@ -10,6 +10,10 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function hasUnsaved(weights, saved, pending) {
+  return pending.some((t) => !saved[t.tavId] && weights[t.tavId] !== '' && weights[t.tavId] != null);
+}
+
 export default function FillWeights() {
   const { authFetch } = useAuth();
   const navigate = useNavigate();
@@ -20,33 +24,46 @@ export default function FillWeights() {
   const [weights, setWeights] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [globalError, setGlobalError] = useState('');
+  const [savingAll, setSavingAll] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (newDate, newShift) => {
     setLoading(true);
-    setError('');
+    setGlobalError('');
     try {
-      const params = new URLSearchParams({ date });
-      if (shift) params.set('shift', shift);
+      const params = new URLSearchParams({ date: newDate });
+      if (newShift) params.set('shift', newShift);
       const res = await authFetch(`/api/reports/pending-weights?${params}`);
       const { pending: items } = await res.json();
       setPending(items || []);
       setWeights({});
       setSaved({});
+      setErrors({});
     } catch {
-      setError('Failed to load pending charges');
+      setGlobalError('Failed to load pending charges');
     } finally {
       setLoading(false);
     }
-  }, [date, shift, authFetch]);
+  }, [authFetch]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(date, shift); }, []);
 
-  const handleSave = async (tav) => {
+  const applyFilter = (newDate, newShift) => {
+    if (hasUnsaved(weights, saved, pending)) {
+      if (!window.confirm('You have unsaved weights. Changing the filter will discard them. Continue?')) return;
+    }
+    setDate(newDate);
+    setShift(newShift);
+    load(newDate, newShift);
+  };
+
+  const saveOne = async (tav) => {
     const w = weights[tav.tavId];
-    if (!w && w !== 0) return;
+    if (w === '' || w == null) return false;
     setSaving((s) => ({ ...s, [tav.tavId]: true }));
+    setErrors((e) => ({ ...e, [tav.tavId]: false }));
     try {
       const res = await authFetch(`/api/reports/${tav.reportId}/tav/${tav.tavId}`, {
         method: 'PATCH',
@@ -55,14 +72,25 @@ export default function FillWeights() {
       });
       if (!res.ok) throw new Error('Failed');
       setSaved((s) => ({ ...s, [tav.tavId]: true }));
+      return true;
     } catch {
-      setError('Failed to save weight — try again');
+      setErrors((e) => ({ ...e, [tav.tavId]: true }));
+      return false;
     } finally {
       setSaving((s) => ({ ...s, [tav.tavId]: false }));
     }
   };
 
+  const handleSaveAll = async () => {
+    const toSave = pending.filter((t) => !saved[t.tavId] && weights[t.tavId] !== '' && weights[t.tavId] != null);
+    if (toSave.length === 0) return;
+    setSavingAll(true);
+    await Promise.all(toSave.map(saveOne));
+    setSavingAll(false);
+  };
+
   const unsaved = pending.filter((t) => !saved[t.tavId]);
+  const filledCount = unsaved.filter((t) => weights[t.tavId] !== '' && weights[t.tavId] != null).length;
 
   const grouped = unsaved.reduce((acc, t) => {
     const key = t.furnaceId || '?';
@@ -77,8 +105,8 @@ export default function FillWeights() {
         <button onClick={() => navigate('/')} className="text-orange-600 min-h-[48px] flex items-center">
           <ArrowLeft size={20} />
         </button>
-        <div className="flex items-center gap-2">
-          <Scale size={18} className="text-orange-600" />
+        <div className="flex items-center gap-2 flex-1">
+          <Scale size={18} className="text-orange-600 shrink-0" />
           <div>
             <h1 className="font-bold text-gray-900">Fill Weights</h1>
             <p className="text-xs text-gray-400">
@@ -93,12 +121,14 @@ export default function FillWeights() {
         <div className="bg-white rounded-xl p-4 flex gap-3">
           <div className="flex-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            <input type="date" value={date}
+              onChange={(e) => applyFilter(e.target.value, shift)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
           </div>
           <div className="flex-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Shift</label>
-            <select value={shift} onChange={(e) => setShift(e.target.value)}
+            <select value={shift}
+              onChange={(e) => applyFilter(date, e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500">
               <option value="">All Shifts</option>
               <option>1st Shift</option>
@@ -107,8 +137,8 @@ export default function FillWeights() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>
+        {globalError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{globalError}</div>
         )}
 
         {loading && (
@@ -123,6 +153,16 @@ export default function FillWeights() {
             <p className="font-semibold text-gray-700">All weights filled</p>
             <p className="text-sm text-gray-400">No pending charges for this date / shift</p>
           </div>
+        )}
+
+        {!loading && unsaved.length > 0 && filledCount > 1 && (
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={savingAll || filledCount === 0}
+            className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-2xl py-3.5 text-sm transition-colors">
+            {savingAll ? 'Saving…' : `Save All ${filledCount} Weights`}
+          </button>
         )}
 
         {!loading && Object.entries(grouped).map(([furnaceId, tavs]) => (
@@ -153,13 +193,15 @@ export default function FillWeights() {
                       min="0" step="any"
                       placeholder="kg"
                       onChange={(e) => setWeights((w) => ({ ...w, [tav.tavId]: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSave(tav)}
-                      className="w-24 border border-gray-300 rounded-lg px-2 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      onKeyDown={(e) => e.key === 'Enter' && saveOne(tav)}
+                      className={`w-24 border rounded-lg px-2 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                        errors[tav.tavId] ? 'border-red-400 bg-red-50 ring-1 ring-red-400' : 'border-gray-300'
+                      }`}
                     />
                     <button
                       type="button"
-                      onClick={() => handleSave(tav)}
-                      disabled={!weights[tav.tavId] || saving[tav.tavId]}
+                      onClick={() => saveOne(tav)}
+                      disabled={(weights[tav.tavId] === '' || weights[tav.tavId] == null) || saving[tav.tavId]}
                       className="bg-orange-600 hover:bg-orange-700 disabled:opacity-40 text-white text-sm font-bold rounded-lg px-4 py-2.5 transition-colors min-w-[60px] text-center">
                       {saving[tav.tavId] ? '…' : 'Save'}
                     </button>

@@ -22,10 +22,10 @@ function reportToRows(r) {
       'Logged By': '',
     }];
   }
-  return tavs.map((t, i) => ({
-    'Submission ID': i === 0 ? r.submissionId : '',
-    'Date': i === 0 ? (r.date ? new Date(r.date).toLocaleDateString() : '') : '',
-    'Shift': i === 0 ? r.shift : '',
+  return tavs.map((t) => ({
+    'Submission ID': r.submissionId,
+    'Date': r.date ? new Date(r.date).toLocaleDateString() : '',
+    'Shift': r.shift,
     'Furnace': FURNACE_LABELS[t.furnaceId] || t.furnaceId || '',
     'Seq #': t.seqNo || i + 1,
     'Operator': t.operator || '',

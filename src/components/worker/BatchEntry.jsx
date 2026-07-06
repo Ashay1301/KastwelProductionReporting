@@ -25,6 +25,14 @@ function isFilled(c) {
   return c.finalWeight !== '' || c.startTime !== '' || c.endTime !== '' || c.energyMeterReading !== '' || c.temperature !== '';
 }
 
+function isComplete(c) {
+  return c.startTime !== '' && c.endTime !== '' && c.energyMeterReading !== '' && c.temperature !== '' && c.finalWeight !== '';
+}
+
+function isPartial(c) {
+  return isFilled(c) && !isComplete(c);
+}
+
 function hasOverride(c, session) {
   return (c.furnaceId && c.furnaceId !== session?.furnaceId) ||
     (c.operator && c.operator !== session?.operator) ||
@@ -35,7 +43,9 @@ function hasOverride(c, session) {
 
 function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDelete, isOnly }) {
   const [showOverride, setShowOverride] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const filled = isFilled(charge);
+  const partial = isPartial(charge);
   const overridden = hasOverride(charge, session);
 
   const effectiveFurnace = charge.furnaceId || session?.furnaceId || '';
@@ -43,11 +53,11 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
   const effectiveGrade = charge.grade !== undefined ? charge.grade : (session?.grade || '');
 
   return (
-    <div className={`rounded-xl border transition-colors ${expanded ? 'border-orange-300 bg-orange-50' : filled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-xl border transition-colors ${expanded ? 'border-orange-300 bg-orange-50' : partial ? 'border-amber-200 bg-amber-50' : filled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
       <button type="button" onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-            filled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+            partial ? 'bg-amber-400 text-white' : filled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
           }`}>{index + 1}</span>
           <div className="text-left">
             {filled ? (
@@ -78,10 +88,23 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
         </div>
         <div className="flex items-center gap-2">
           {!isOnly && filled && (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(index); }}
-              className="text-red-400 hover:text-red-600 p-1">
-              <Trash2 size={14} />
-            </button>
+            pendingDelete ? (
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <button type="button" onClick={() => onDelete(index)}
+                  className="text-xs text-white bg-red-500 hover:bg-red-600 font-bold px-2 py-0.5 rounded">
+                  Delete
+                </button>
+                <button type="button" onClick={() => setPendingDelete(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-1">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={(e) => { e.stopPropagation(); setPendingDelete(true); }}
+                className="text-gray-300 hover:text-red-400 p-1 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            )
           )}
           {expanded ? <ChevronUp size={18} className="text-orange-500" /> : <ChevronDown size={18} className="text-gray-400" />}
         </div>
@@ -187,6 +210,8 @@ function ChargeCard({ index, charge, session, expanded, onToggle, onChange, onDe
 // ─── Grid view ───────────────────────────────────────────────────────────────
 
 function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
+  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
+
   const cell = (overridden) =>
     `w-full border rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500 ${
       overridden ? 'border-orange-400 bg-orange-50 text-orange-800' : 'border-gray-200 bg-white text-gray-800'
@@ -267,12 +292,25 @@ function BatchGrid({ charges, session, onChange, onDelete, addCharge }) {
                   <input type="number" value={c.finalWeight} onChange={(e) => onChange(i, 'finalWeight', e.target.value)}
                     placeholder="kg" min="0" step="any" className={cell(false)} />
                 </td>
-                <td className="px-2 py-1.5 text-center">
+                <td className="px-2 py-1.5 text-center" style={{ minWidth: 70 }}>
                   {charges.length > 1 && (
-                    <button type="button" onClick={() => onDelete(i)}
-                      className="text-gray-300 hover:text-red-500 p-1 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                    pendingDeleteRow === i ? (
+                      <div className="flex items-center gap-0.5">
+                        <button type="button" onClick={() => { onDelete(i); setPendingDeleteRow(null); }}
+                          className="text-xs text-white bg-red-500 hover:bg-red-600 font-bold px-1.5 py-0.5 rounded">
+                          Del
+                        </button>
+                        <button type="button" onClick={() => setPendingDeleteRow(null)}
+                          className="text-xs text-gray-400 px-1">
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setPendingDeleteRow(i)}
+                        className="text-gray-300 hover:text-red-500 p-1 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    )
                   )}
                 </td>
               </tr>

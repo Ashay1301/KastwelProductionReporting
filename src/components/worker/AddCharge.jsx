@@ -69,6 +69,8 @@ export default function AddCharge() {
   };
 
   const handleSave = async (andDone = false) => {
+    const allEmpty = !charge.startTime && !charge.endTime && !charge.energyMeterReading && !charge.temperature && !charge.finalWeight;
+    if (allEmpty) { setError('Fill in at least one field before saving'); return; }
     setError('');
     setSaving(true);
     try {
@@ -204,14 +206,14 @@ export default function AddCharge() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Energy Meter</label>
-              <input type="number" value={charge.energyMeterReading} onChange={(e) => set('energyMeterReading', e.target.value)}
-                placeholder="kWh reading" min="0" step="any"
+              <input type="text" inputMode="decimal" value={charge.energyMeterReading} onChange={(e) => set('energyMeterReading', e.target.value)}
+                placeholder="kWh reading"
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Temperature (°C)</label>
-              <input type="number" value={charge.temperature} onChange={(e) => set('temperature', e.target.value)}
-                placeholder="°C" min="0" step="any"
+              <input type="text" inputMode="decimal" value={charge.temperature} onChange={(e) => set('temperature', e.target.value)}
+                placeholder="°C"
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </div>
           </div>
