@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, CheckCircle, Settings } from 'lucide-react';
-import { getSession } from './SessionSetup';
+import { ArrowLeft, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { getSession, saveSession } from './SessionSetup';
 
+const FURNACES = ['A', 'B', 'A2', 'B2', 'C2'];
 const FURNACE_LABELS = { A: 'A (500kg)', B: 'B (500kg)', A2: 'A2 (1000kg)', B2: 'B2 (1000kg)', C2: 'C2 (500kg)' };
 
-const EMPTY_CHARGE = { finalWeight: '', startTime: '', endTime: '', energyMeterReading: '', temperature: '' };
+function addOneMinute(timeStr) {
+  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return '';
+  const total = h * 60 + m + 1;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 function computeLotNo(dateStr, grade) {
   if (!grade) return '';
@@ -14,16 +21,26 @@ function computeLotNo(dateStr, grade) {
   return `${year.slice(-2)}${month}${day}/${grade}`;
 }
 
+const emptyCharge = (startTime = '') => ({
+  startTime,
+  endTime: '',
+  energyMeterReading: '',
+  temperature: '',
+  finalWeight: '',
+});
+
 export default function AddCharge() {
   const { authFetch } = useAuth();
   const navigate = useNavigate();
-  const session = getSession();
 
-  const [charge, setCharge] = useState(EMPTY_CHARGE);
+  const [session, setSession] = useState(() => getSession());
+  const [charge, setCharge] = useState(() => emptyCharge());
   const [count, setCount] = useState(0);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({});
 
   if (!session) {
     return (
@@ -39,6 +56,18 @@ export default function AddCharge() {
 
   const set = (k, v) => setCharge((c) => ({ ...c, [k]: v }));
 
+  const openEdit = () => {
+    setEditForm({ furnaceId: session.furnaceId, operator: session.operator, grade: session.grade });
+    setShowEdit(true);
+  };
+
+  const applyEdit = () => {
+    const updated = { ...session, ...editForm };
+    saveSession(updated);
+    setSession(updated);
+    setShowEdit(false);
+  };
+
   const handleSave = async (andDone = false) => {
     setError('');
     setSaving(true);
@@ -53,7 +82,7 @@ export default function AddCharge() {
       const newCount = count + 1;
       setCount(newCount);
       setLastSaved({ ...charge, seqNo: newCount });
-      setCharge(EMPTY_CHARGE);
+      setCharge(emptyCharge(addOneMinute(charge.endTime)));
       if (andDone) navigate('/');
     } catch (err) {
       setError(err.message);
@@ -69,13 +98,11 @@ export default function AddCharge() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="font-bold text-gray-900">Log Charge</h1>
-        <button onClick={() => navigate('/session-setup?mode=realtime')} className="text-gray-400 hover:text-orange-600 min-h-[48px] flex items-center">
-          <Settings size={18} />
-        </button>
+        <div className="w-10" />
       </header>
 
       <div className="max-w-xl mx-auto px-4 py-4 space-y-4">
-        {/* Locked session banner */}
+        {/* Session banner */}
         <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="text-sm">
@@ -83,12 +110,59 @@ export default function AddCharge() {
               {session.operator && <span className="text-orange-700"> · {session.operator}</span>}
               {session.grade && <span className="text-orange-600"> · Grade {session.grade}</span>}
             </div>
-            <span className="text-xs text-orange-400">{session.shift}</span>
+            <button
+              onClick={() => showEdit ? setShowEdit(false) : openEdit()}
+              className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 font-medium transition-colors">
+              {showEdit ? <><ChevronUp size={13} /> Close</> : <><ChevronDown size={13} /> Change</>}
+            </button>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-orange-500">{new Date(session.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-            {count > 0 && <p className="text-xs font-bold text-orange-600">{count} charge{count !== 1 ? 's' : ''} logged this session</p>}
+            <p className="text-xs text-orange-500">
+              {new Date(session.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {' · '}{session.shift}
+            </p>
+            {count > 0 && <p className="text-xs font-bold text-orange-600">{count} charge{count !== 1 ? 's' : ''} logged</p>}
           </div>
+
+          {/* Inline session editor */}
+          {showEdit && (
+            <div className="mt-3 pt-3 border-t border-orange-200 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-orange-700 mb-1.5">Furnace</label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {FURNACES.map((id) => (
+                    <button key={id} type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, furnaceId: id }))}
+                      className={`py-2 rounded-md text-xs font-bold border transition-colors ${
+                        editForm.furnaceId === id
+                          ? 'bg-orange-600 text-white border-orange-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'
+                      }`}>
+                      {id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-orange-700 mb-1">Operator</label>
+                  <input type="text" value={editForm.operator ?? ''}
+                    onChange={(e) => setEditForm((f) => ({ ...f, operator: e.target.value }))}
+                    className="w-full border border-orange-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-orange-700 mb-1">Grade</label>
+                  <input type="text" value={editForm.grade ?? ''}
+                    onChange={(e) => setEditForm((f) => ({ ...f, grade: e.target.value }))}
+                    className="w-full border border-orange-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+              </div>
+              <button type="button" onClick={applyEdit}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg py-2 text-sm transition-colors">
+                Apply for this and subsequent charges
+              </button>
+            </div>
+          )}
         </div>
 
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -97,7 +171,11 @@ export default function AddCharge() {
         {lastSaved && (
           <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 flex items-center gap-2 text-sm text-green-700">
             <CheckCircle size={16} />
-            <span>Charge #{lastSaved.seqNo} saved — {lastSaved.finalWeight ? `${lastSaved.finalWeight} kg` : 'no weight'} · {lastSaved.startTime || '?'}–{lastSaved.endTime || '?'}</span>
+            <span>
+              Charge #{lastSaved.seqNo} saved
+              {lastSaved.startTime ? ` · ${lastSaved.startTime}–${lastSaved.endTime || '?'}` : ''}
+              {lastSaved.finalWeight ? ` · ${lastSaved.finalWeight} kg` : ' · no weight'}
+            </span>
           </div>
         )}
 
@@ -108,24 +186,17 @@ export default function AddCharge() {
         </div>
 
         <div className="bg-white rounded-xl p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Final Weight (kg)</label>
-            <input type="number" value={charge.finalWeight} onChange={(e) => set('finalWeight', e.target.value)}
-              placeholder="e.g. 261.300" min="0" step="any" autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
               <input type="text" value={charge.startTime} onChange={(e) => set('startTime', e.target.value)}
-                placeholder="e.g. 08:30" maxLength={5}
+                placeholder="HH:MM" maxLength={5} autoFocus
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
               <input type="text" value={charge.endTime} onChange={(e) => set('endTime', e.target.value)}
-                placeholder="e.g. 10:15" maxLength={5}
+                placeholder="HH:MM" maxLength={5}
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </div>
           </div>
@@ -143,6 +214,13 @@ export default function AddCharge() {
                 placeholder="°C" min="0" step="any"
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Final Weight (kg)</label>
+            <input type="number" value={charge.finalWeight} onChange={(e) => set('finalWeight', e.target.value)}
+              placeholder="e.g. 261.300" min="0" step="any"
+              className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500" />
           </div>
         </div>
 
