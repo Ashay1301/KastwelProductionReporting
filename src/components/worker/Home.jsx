@@ -66,12 +66,25 @@ export default function WorkerHome() {
               {session.operator ? ` · ${session.operator}` : ''}
               {session.grade ? ` · Grade ${session.grade}` : ''}
             </p>
+            <p className="text-xs text-orange-500 mt-0.5">
+              {session.shift}
+              {session.date ? ` · ${new Date(session.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+            </p>
           </div>
         )}
 
         {/* Mode selector */}
         <div>
-          <p className="text-sm font-semibold text-gray-700 mb-3">Log Charges</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-gray-700">Log Charges</p>
+            {session && (
+              <button
+                onClick={() => navigate('/session-setup?mode=realtime')}
+                className="text-xs text-orange-500 hover:text-orange-700 underline">
+                New session
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => session ? navigate('/log-charge') : navigate('/session-setup?mode=realtime')}
