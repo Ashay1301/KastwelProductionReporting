@@ -80,8 +80,8 @@ export default function WorkerHome() {
             {session && (
               <button
                 onClick={() => navigate('/session-setup?mode=realtime')}
-                className="text-xs text-orange-500 hover:text-orange-700 underline">
-                New session
+                className="text-sm font-semibold text-orange-600 hover:text-orange-800 bg-orange-100 hover:bg-orange-200 px-3 py-1.5 rounded-lg transition-colors">
+                + New Session
               </button>
             )}
           </div>
