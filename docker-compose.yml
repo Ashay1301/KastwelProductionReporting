@@ -25,10 +25,19 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
     depends_on:
       - api
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
 
   portainer:
     image: portainer/portainer-ce:latest
@@ -42,3 +51,5 @@ services:
 volumes:
   mongo_data:
   portainer_data:
+  certbot_certs:
+  certbot_www:
