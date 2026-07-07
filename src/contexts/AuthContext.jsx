@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 const AuthContext = createContext(null);
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('production_token'));
@@ -15,7 +17,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => { if (!r.ok) throw new Error('invalid'); return r.json(); })
       .then(({ user }) => setUser(user))
       .catch(() => logout())
@@ -23,7 +25,7 @@ export function AuthProvider({ children }) {
   }, [token, logout]);
 
   const login = async (email, password) => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -41,7 +43,7 @@ export function AuthProvider({ children }) {
 
   const authFetch = useCallback(
     async (url, options = {}) => {
-      const res = await fetch(url, {
+      const res = await fetch(`${API_BASE}${url}`, {
         ...options,
         headers: { ...options.headers, Authorization: `Bearer ${token}` },
       });

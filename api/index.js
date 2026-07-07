@@ -7,7 +7,9 @@ import userRoutes from './routes/users.js';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
