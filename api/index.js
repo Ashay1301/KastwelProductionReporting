@@ -16,9 +16,11 @@ app.use('/api/users', userRoutes);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
+const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+} else {
+  app.listen(PORT, () => console.log(`API running on port ${PORT}`));
 }
 
 export default app;

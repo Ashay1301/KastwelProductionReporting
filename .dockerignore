@@ -1,7 +1,5 @@
 node_modules
-dist
 api/node_modules
-api/.env
+.git
 .env
-.env.docker
-.vercel
+api/.env
