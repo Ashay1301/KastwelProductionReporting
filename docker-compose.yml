@@ -36,7 +36,7 @@ services:
     ports:
       - "9000:9000"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - //./pipe/docker_engine://./pipe/docker_engine
       - portainer_data:/data
 
 volumes:
