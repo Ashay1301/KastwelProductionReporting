@@ -31,7 +31,8 @@ router.post('/', requireAdmin, async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to create user', error: err.message });
+    console.error('Failed to create user:', err);
+    res.status(500).json({ message: 'Failed to create user' });
   }
 });
 

@@ -140,7 +140,8 @@ router.patch('/:id/tav/:tavId', verifyToken, async (req, res) => {
     await report.save();
     res.json({ tav });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to update weight', error: err.message });
+    console.error('Failed to update weight:', err);
+    res.status(500).json({ message: 'Failed to update weight' });
   }
 });
 
@@ -199,7 +200,8 @@ router.post('/tav', verifyToken, async (req, res) => {
     await report.save();
     res.status(201).json({ report });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to log charge', error: err.message });
+    console.error('Failed to log charge:', err);
+    res.status(500).json({ message: 'Failed to log charge' });
   }
 });
 
@@ -219,7 +221,8 @@ router.post('/batch', verifyToken, async (req, res) => {
     await report.save();
     res.status(201).json({ report });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to log batch', error: err.message });
+    console.error('Failed to log batch:', err);
+    res.status(500).json({ message: 'Failed to log batch' });
   }
 });
 

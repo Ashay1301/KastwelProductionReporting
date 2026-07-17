@@ -10,14 +10,20 @@ router.post('/login', async (req, res) => {
   try {
     await connectDB();
     const { email, password } = req.body;
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     const user = await User.findOne({ email: email.toLowerCase(), isActive: true });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) {
+      console.warn(`[auth] failed login email=${email} ip=${req.ip}`);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      console.warn(`[auth] failed login email=${email} ip=${req.ip}`);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role, name: user.name },
